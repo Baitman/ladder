@@ -29,6 +29,9 @@ from fuel.transformers import Transformer
 from picklable_itertools import cycle, imap
 from itertools import izip, product, tee
 
+from fuel import config
+config.data_path ='/home/cyberreu/ladder'
+
 logger = logging.getLogger('main')
 
 from utils import ShortPrinting, prepare_dir, load_df, DummyLoop
