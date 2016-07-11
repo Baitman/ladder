@@ -234,6 +234,7 @@ def setup_data(p, test_set=False):
     dataset_class, training_set_size = {
         'cifar10': (CIFAR10, 40000),
         'mnist': (MNIST, 50000),
+	'kdd99': (KDD99,8000),
     }[p.dataset]
 
     # Allow overriding the default from command line
@@ -565,7 +566,7 @@ if __name__ == "__main__":
         a("--unlabeled-samples", help="How many unsupervised samples are used",
           type=int, default=default(None), nargs='+')
         a("--dataset", type=str, default=default(['mnist']), nargs='+',
-          choices=['mnist', 'cifar10'], help="Which dataset to use")
+          choices=['mnist', 'cifar10', 'kdd99'], help="Which dataset to use")
         a("--lr", help="Initial learning rate",
           type=float, default=default([0.002]), nargs='+')
         a("--lrate-decay", help="When to linearly start decaying lrate (0-1)",
