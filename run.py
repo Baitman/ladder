@@ -21,7 +21,7 @@ from blocks.graph import ComputationGraph
 from blocks.main_loop import MainLoop
 from blocks.model import Model
 from blocks.roles import PARAMETER
-from fuel.datasets import MNIST, CIFAR10
+from fuel.datasets import MNIST, CIFAR10,kdd
 from fuel.schemes import ShuffledScheme, SequentialScheme
 from fuel.streams import DataStream
 from fuel.transformers import Transformer
@@ -49,6 +49,8 @@ class Whitening(Transformer):
                                         iteration_scheme=iteration_scheme,
                                         **kwargs)
         data = data_stream.get_data(slice(data_stream.dataset.num_examples))
+        print "DATA"
+        print data
         self.data = []
         for s, d in zip(self.sources, data):
             if 'features' == s:
@@ -145,6 +147,7 @@ def make_datastream(dataset, indices, batch_size,
         all_data = dataset.data_sources[dataset.sources.index('targets')]
         y = unify_labels(all_data)[indices]
         n_classes = y.max() + 1
+        print n_labeled, n_classes
         assert n_labeled % n_classes == 0
         n_from_each_class = n_labeled / n_classes
 
@@ -186,7 +189,7 @@ def setup_model(p):
             loaded = numpy.load(f)
             cg = ComputationGraph([ladder.costs.total])
             current_params = VariableFilter(roles=[PARAMETER])(cg.variables)
-            logger.info('Loading parameters: %s' % ', '.join(loaded.keys()))
+   #         logger.info('Loading parameters: %s' % ', '.join(loaded.keys()))
             for param in current_params:
                 assert param.get_value().shape == loaded[param.name].shape
                 param.set_value(loaded[param.name])
@@ -212,33 +215,37 @@ def load_and_log_params(cli_params):
         # Make dseed seed unless specified explicitly
         if p.get('dseed') is None and p.get('seed') is not None:
             p['dseed'] = p['seed']
+            
+            logger.info('== COMMAND LINE ==')
+            logger.info(' '.join(sys.argv))
 
-    logger.info('== COMMAND LINE ==')
-    logger.info(' '.join(sys.argv))
-
-    logger.info('== PARAMETERS ==')
+ #   logger.info('== PARAMETERS ==')
     for k, v in p.iteritems():
         if new_params.get(k) is not None:
             p[k] = new_params[k]
             replace_str = "<- " + str(new_params.get(k))
         else:
             replace_str = ""
-        logger.info(" {:20}: {:<20} {}".format(k, v, replace_str))
+#        logger.info(" {:20}: {:<20} {}".format(k, v, replace_str))
     return p, loaded
 
 
 def setup_data(p, test_set=False):
+    print p.dataset
     dataset_class, training_set_size = {
         'cifar10': (CIFAR10, 40000),
         'mnist': (MNIST, 50000),
+        'kdd':(kdd,3150),
+        
     }[p.dataset]
-
+    print "DATASET CLASS"
+    print dataset_class 
     # Allow overriding the default from command line
     if p.get('unlabeled_samples') is not None:
         training_set_size = p.unlabeled_samples
 
-    train_set = dataset_class("train")
-
+    train_set = dataset_class('train')
+    print train_set
     # Make sure the MNIST data is in right format
     if p.dataset == 'mnist':
         d = train_set.data_sources[train_set.sources.index('features')]
@@ -255,12 +262,14 @@ def setup_data(p, test_set=False):
 
     # Choose the training set
     d.train = train_set
+    print "TRAIN SET"
+    print train_set
     d.train_ind = all_ind[:training_set_size]
 
     # Then choose validation set from the remaining indices
     d.valid = train_set
     d.valid_ind = numpy.setdiff1d(all_ind, d.train_ind)[:p.valid_set_size]
-    logger.info('Using %d examples for validation' % len(d.valid_ind))
+#    logger.info('Using %d examples for validation' % len(d.valid_ind))
 
     # Only touch test data if requested
     if test_set:
@@ -282,7 +291,7 @@ def setup_data(p, test_set=False):
         return data if cnorm is None else cnorm.apply(data)
 
     if p.whiten_zca > 0:
-        logger.info('Whitening using %d ZCA components' % p.whiten_zca)
+      #  logger.info('Whitening using %d ZCA components' % p.whiten_zca)
         whiten = ZCA()
         whiten.fit(p.whiten_zca, get_data(d.train, d.train_ind))
     else:
@@ -297,6 +306,7 @@ def get_error(args):
     args['no_load'] = 'g_'
 
     targets, acts = analyze(args)
+    print targets
     guess = numpy.argmax(acts, axis=1)
     correct = numpy.sum(numpy.equal(guess, targets.flatten()))
 
@@ -307,16 +317,18 @@ def analyze(cli_params):
     p, _ = load_and_log_params(cli_params)
     _, data, whiten, cnorm = setup_data(p, test_set=True)
     ladder = setup_model(p)
-
+    print "PRINTING DATA TRAIN"
+    print len(data.test_ind)
+    
     # Analyze activations
     dset, indices, calc_batchnorm = {
         'train': (data.train, data.train_ind, False),
-        'valid': (data.valid, data.valid_ind, True),
+        #'valid': (data.valid, data.valid_ind, True),
         'test':  (data.test, data.test_ind, True),
     }[p.data_type]
 
     if calc_batchnorm:
-        logger.info('Calculating batch normalization for clean.labeled path')
+     #   logger.info('Calculating batch normalization for clean.labeled path')
         main_loop = DummyLoop(
             extensions=[
                 FinalTestMonitoring(
@@ -385,6 +397,10 @@ def analyze(cli_params):
 
     # Concatenate all minibatches
     res = [numpy.vstack(minibatches) for minibatches in zip(*res)]
+    print "here*************************"
+    for k, v in inputs.iteritems():
+        print len(k)
+        print len(v)
     inputs = {k: numpy.vstack(v) for k, v in inputs.iteritems()}
 
     return inputs['targets_labeled'], res[0]
@@ -395,11 +411,11 @@ def train(cli_params):
     logfile = os.path.join(cli_params['save_dir'], 'log.txt')
 
     # Log also DEBUG to a file
-    fh = logging.FileHandler(filename=logfile)
-    fh.setLevel(logging.DEBUG)
-    logger.addHandler(fh)
+   # fh = logging.FileHandler(filename=logfile)
+    #fh.setLevel(logging.DEBUG)
+  #  logger.addHandler(fh)
 
-    logger.info('Logging into %s' % logfile)
+ #   logger.info('Logging into %s' % logfile)
 
     p, loaded = load_and_log_params(cli_params)
     in_dim, data, whiten, cnorm = setup_data(p, test_set=False)
@@ -411,7 +427,7 @@ def train(cli_params):
 
     # Training
     all_params = ComputationGraph([ladder.costs.total]).parameters
-    logger.info('Found the following parameters: %s' % str(all_params))
+#    logger.info('Found the following parameters: %s' % str(all_params))
 
     # Fetch all batch normalization updates. They are in the clean path.
     bn_updates = ComputationGraph([ladder.costs.class_clean]).updates
@@ -552,7 +568,7 @@ if __name__ == "__main__":
         a("save_to", help="Destination to save the state and results",
           default=default("noname"), nargs="?")
         a("--num-epochs", help="Number of training epochs",
-          type=int, default=default(150))
+          type=int, default=default(3))
         a("--seed", help="Seed",
           type=int, default=default([1]), nargs='+')
         a("--dseed", help="Data permutation seed, defaults to 'seed'",
@@ -562,7 +578,7 @@ if __name__ == "__main__":
         a("--unlabeled-samples", help="How many unsupervised samples are used",
           type=int, default=default(None), nargs='+')
         a("--dataset", type=str, default=default(['mnist']), nargs='+',
-          choices=['mnist', 'cifar10'], help="Which dataset to use")
+          choices=['mnist', 'cifar10','kdd'], help="Which dataset to use")
         a("--lr", help="Initial learning rate",
           type=float, default=default([0.002]), nargs='+')
         a("--lrate-decay", help="When to linearly start decaying lrate (0-1)",
@@ -640,13 +656,15 @@ if __name__ == "__main__":
     elif args.cmd == "train":
         listdicts = {k: v for k, v in vars(args).iteritems() if type(v) is list}
         therest = {k: v for k, v in vars(args).iteritems() if type(v) is not list}
-
+        
         gen1, gen2 = tee(product(*listdicts.itervalues()))
 
         l = len(list(gen1))
         for i, d in enumerate(dict(izip(listdicts, x)) for x in gen2):
+           ## print(i,d)
             if l > 1:
-                logger.info('Training configuration %d / %d' % (i+1, l))
+                pass
+                #logger.info('Training configuration %d / %d' % (i+1, l))
             d.update(therest)
             if train(d) is None:
                 break
