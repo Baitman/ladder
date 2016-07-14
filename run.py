@@ -21,7 +21,7 @@ from blocks.graph import ComputationGraph
 from blocks.main_loop import MainLoop
 from blocks.model import Model
 from blocks.roles import PARAMETER
-from fuel.datasets import MNIST, CIFAR10
+from fuel.datasets import MNIST, CIFAR10, kdd
 from fuel.schemes import ShuffledScheme, SequentialScheme
 from fuel.streams import DataStream
 from fuel.transformers import Transformer
@@ -148,6 +148,7 @@ def make_datastream(dataset, indices, batch_size,
         all_data = dataset.data_sources[dataset.sources.index('targets')]
         y = unify_labels(all_data)[indices]
         n_classes = y.max() + 1
+	print "Number of classes :" + str(n_classes)
         assert n_labeled % n_classes == 0
         n_from_each_class = n_labeled / n_classes
 
@@ -234,7 +235,7 @@ def setup_data(p, test_set=False):
     dataset_class, training_set_size = {
         'cifar10': (CIFAR10, 40000),
         'mnist': (MNIST, 50000),
-	'kdd99': (KDD99,8000),
+	'kdd': (kdd,9000),
     }[p.dataset]
 
     # Allow overriding the default from command line
@@ -318,7 +319,7 @@ def analyze(cli_params):
         'valid': (data.valid, data.valid_ind, True),
         'test':  (data.test, data.test_ind, True),
     }[p.data_type]
-
+    print "The test length is: " + str(len(data.test_ind))
     if calc_batchnorm:
         logger.info('Calculating batch normalization for clean.labeled path')
         main_loop = DummyLoop(
@@ -556,7 +557,7 @@ if __name__ == "__main__":
         a("save_to", help="Destination to save the state and results",
           default=default("noname"), nargs="?")
         a("--num-epochs", help="Number of training epochs",
-          type=int, default=default(150))
+          type=int, default=default(50))
         a("--seed", help="Seed",
           type=int, default=default([1]), nargs='+')
         a("--dseed", help="Data permutation seed, defaults to 'seed'",
@@ -565,14 +566,14 @@ if __name__ == "__main__":
           type=int, default=default(None), nargs='+')
         a("--unlabeled-samples", help="How many unsupervised samples are used",
           type=int, default=default(None), nargs='+')
-        a("--dataset", type=str, default=default(['mnist']), nargs='+',
-          choices=['mnist', 'cifar10', 'kdd99'], help="Which dataset to use")
+        a("--dataset", type=str, default=default(['kdd']), nargs='+',
+          choices=['mnist', 'cifar10', 'kdd'], help="Which dataset to use")
         a("--lr", help="Initial learning rate",
           type=float, default=default([0.002]), nargs='+')
         a("--lrate-decay", help="When to linearly start decaying lrate (0-1)",
           type=float, default=default([0.67]), nargs='+')
         a("--batch-size", help="Minibatch size",
-          type=int, default=default([100]), nargs='+')
+          type=int, default=default([20]), nargs='+')
         a("--valid-batch-size", help="Minibatch size for validation data",
           type=int, default=default([100]), nargs='+')
         a("--valid-set-size", help="Number of examples in validation set",
