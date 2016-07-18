@@ -1,3 +1,9 @@
+"""
+This following code is a modified version of the code created by Xing Fang
+Original can be found at :
+
+Modified by Ochaun Marshall, Mutahir Needeem, Sarbjit Singh
+"""
 import numpy
 import sys
 import pickle
@@ -140,7 +146,7 @@ srv_count_max = srv_count
 dest_host_max = dest_hosts
 dest_host_srv_max = dest_host_srv
 
-min_items = 1000
+min_items = 3000
 random_dict = {}
 for label in labels:
 	print("here", label, labels[label])
@@ -294,5 +300,4 @@ print len(all_data)
 print "Pickling..."
 with open('all_data.pickle2','w') as f:
 	pickle.dump(all_data,f)
-																																																																														
 file2.close

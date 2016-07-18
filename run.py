@@ -235,7 +235,7 @@ def setup_data(p, test_set=False):
     dataset_class, training_set_size = {
         'cifar10': (CIFAR10, 40000),
         'mnist': (MNIST, 50000),
-	'kdd': (kdd,9000),
+	'kdd': (kdd,12000),
     }[p.dataset]
 
     # Allow overriding the default from command line
